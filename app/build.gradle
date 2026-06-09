@@ -1,0 +1,56 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    namespace 'com.happytalk.radio'
+    compileSdk 36
+
+    signingConfigs {
+        release {
+            storeFile file('../happytalk.keystore')
+            storePassword 'happytalk123'
+            keyAlias 'happytalk'
+            keyPassword 'happytalk123'
+        }
+    }
+
+    defaultConfig {
+        applicationId "com.happytalk.radio"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.10.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+
+    // Kotlin coroutines (required by Appwrite SDK)
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2'
+
+    // Appwrite Android SDK
+    implementation 'io.appwrite:sdk-for-android:25.0.0'
+
+    // WorkManager for reliable background auto-delete
+    implementation 'androidx.work:work-runtime-ktx:2.9.0'
+}

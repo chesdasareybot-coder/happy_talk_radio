@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="primary">#E91E63</color>
+    <color name="primary_dark">#C2185B</color>
+    <color name="accent">#FF4081</color>
+    
+    <!-- Light Mode / Driving friendly colors -->
+    <color name="background">#FFFFFF</color>
+    <color name="surface">#F5F5F5</color>
+    
+    <!-- Radio button colors -->
+    <color name="ptt_idle">#E91E63</color> <!-- Pink -->
+    <color name="ptt_active">#F44336</color> <!-- Live Red -->
+    <color name="ptt_stroke">#99E91E63</color>
+    <color name="ptt_ring_1">#33E91E63</color>
+    <color name="ptt_ring_2">#66E91E63</color>
+    <color name="ptt_ring_3">#99E91E63</color>
+    
+    <color name="text_primary">#000000</color>
+    <color name="text_secondary">#757575</color>
+</resources>

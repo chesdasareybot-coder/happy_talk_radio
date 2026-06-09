@@ -1,0 +1,11 @@
+{
+  "name": "happytalk-radio-setup",
+  "version": "1.0.0",
+  "description": "Appwrite setup script for HappyTalk Radio",
+  "scripts": {
+    "setup": "node setup-appwrite.js"
+  },
+  "dependencies": {
+    "node-appwrite": "^14.2.0"
+  }
+}

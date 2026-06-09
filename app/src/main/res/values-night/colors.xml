@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="primary">#F48FB1</color>
+    <color name="accent">#FF80AB</color>
+    
+    <!-- Dark Mode colors -->
+    <color name="background">#121212</color>
+    <color name="surface">#1E1E1E</color>
+    <color name="ptt_active">#EF5350</color> <!-- Light red for dark mode -->
+    
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#B0B0B0</color>
+</resources>
