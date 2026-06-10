@@ -313,14 +313,18 @@ class MainActivity : AppCompatActivity() {
             }
         })
         
-        etNickName.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE || actionId == android.view.inputmethod.EditorInfo.IME_ACTION_GO) {
-                val nick = etNickName.text.toString().trim()
-                if (nick.isNotEmpty()) {
-                    currentNickName = nick
-                    prefs.edit().putString("currentNickName", currentNickName).apply()
-                    Toast.makeText(this, "Nick Name set to $currentNickName", Toast.LENGTH_SHORT).show()
+        etNickName.setOnFocusChangeListener { _, hasFocus ->
+            if (!hasFocus) {
+                presenceRunnable?.let {
+                    presenceHandler.removeCallbacks(it)
+                    presenceHandler.post(it)
                 }
+            }
+        }
+        
+        etNickName.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE || actionId == android.view.inputmethod.EditorInfo.IME_ACTION_GO || actionId == android.view.inputmethod.EditorInfo.IME_ACTION_NEXT) {
+                Toast.makeText(this, "Nick Name updated!", Toast.LENGTH_SHORT).show()
                 etNickName.clearFocus()
                 val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
                 imm.hideSoftInputFromWindow(etNickName.windowToken, 0)
