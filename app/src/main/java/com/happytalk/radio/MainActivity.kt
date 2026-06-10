@@ -38,11 +38,11 @@ import androidx.work.WorkManager
 import java.util.concurrent.TimeUnit
 import java.io.File
 import java.net.InetAddress
+import java.net.NetworkInterface
 import com.happytalk.radio.AppwriteManager.databases
 import io.appwrite.ID
 import io.appwrite.Query
 import io.appwrite.models.Document
-import com.google.firebase.messaging.FirebaseMessaging
 import io.appwrite.exceptions.AppwriteException
 import io.appwrite.models.RealtimeSubscription
 import io.appwrite.models.InputFile
@@ -419,51 +419,6 @@ class MainActivity : AppCompatActivity() {
         ivPttRing.setImageResource(R.drawable.ptt_ring)
         etChannelName.clearFocus()
         etNickName.clearFocus()
-
-        // Sync FCM Token
-        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-            if (task.isSuccessful) {
-                val token = task.result
-                CoroutineScope(Dispatchers.IO).launch {
-                    try {
-                        val userId = AppwriteManager.account.get().id
-                        // Check if token already exists for this channel and user
-                        val existing = databases.listDocuments(
-                            databaseId = "happytalk_db",
-                            collectionId = "device_tokens",
-                            queries = listOf(
-                                Query.equal("userId", userId),
-                                Query.equal("channelName", channelName)
-                            )
-                        )
-                        if (existing.documents.isEmpty()) {
-                            databases.createDocument(
-                                databaseId = "happytalk_db",
-                                collectionId = "device_tokens",
-                                documentId = ID.unique(),
-                                data = mapOf(
-                                    "userId" to userId,
-                                    "fcmToken" to token,
-                                    "channelName" to channelName
-                                )
-                            )
-                        } else {
-                            val docId = existing.documents[0].id
-                            databases.updateDocument(
-                                databaseId = "happytalk_db",
-                                collectionId = "device_tokens",
-                                documentId = docId,
-                                data = mapOf(
-                                    "fcmToken" to token
-                                )
-                            )
-                        }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
-                }
-            }
-        }
 
         unsubscribeAll()
         presenceRunnable?.let { presenceHandler.removeCallbacks(it) }

@@ -62,16 +62,6 @@ class RadioService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == "ACTION_PLAY_FCM_AUDIO") {
-            val audioUrl = intent.getStringExtra("audioUrl")
-            if (!audioUrl.isNullOrEmpty()) {
-                currentChannelName = intent.getStringExtra("channelName") ?: currentChannelName
-                CoroutineScope(Dispatchers.IO).launch {
-                    downloadAndPlay(audioUrl)
-                }
-            }
-            return START_STICKY
-        }
         if (intent?.action == ACTION_SET_MUTE) {
             isMuted = intent.getBooleanExtra(EXTRA_MUTED, false)
             Log.i("RadioService", "Mute state updated: $isMuted")
