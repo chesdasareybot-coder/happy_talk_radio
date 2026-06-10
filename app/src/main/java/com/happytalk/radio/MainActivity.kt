@@ -475,7 +475,7 @@ class MainActivity : AppCompatActivity() {
             override fun run() {
                 scope.launch {
                     val id = (currentChannelName + deviceId).take(36).replace("-", "_")
-                    val userName = runCatching { AppwriteManager.account.get().name }.getOrDefault("Guest")
+                    val userName = currentNickName.ifBlank { "Guest" }
                     val data = mapOf("channelName" to currentChannelName, "deviceId" to deviceId,
                         "userName" to userName, "lastSeen" to System.currentTimeMillis())
                     try {
