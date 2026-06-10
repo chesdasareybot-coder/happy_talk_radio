@@ -301,6 +301,18 @@ class MainActivity : AppCompatActivity() {
             }
         }
         
+        etNickName.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                val nick = s?.toString()?.trim() ?: ""
+                if (nick.isNotEmpty()) {
+                    currentNickName = nick
+                    prefs.edit().putString("currentNickName", currentNickName).apply()
+                }
+            }
+        })
+        
         etNickName.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE || actionId == android.view.inputmethod.EditorInfo.IME_ACTION_GO) {
                 val nick = etNickName.text.toString().trim()
