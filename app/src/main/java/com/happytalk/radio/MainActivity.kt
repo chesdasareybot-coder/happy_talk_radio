@@ -538,7 +538,7 @@ class MainActivity : AppCompatActivity() {
             scope.launch {
                 try {
                     val docs = AppwriteManager.databases.listDocuments(DATABASE_ID, "presence",
-                        listOf(Query.equal("channelName", currentChannelName)))
+                        listOf(Query.equal("channelName", currentChannelName), Query.limit(5000)))
                     val now = System.currentTimeMillis()
                     val activeDocs = docs.documents.filter { d ->
                         ((d.data["lastSeen"] as? Number)?.toLong() ?: 0L).let { now - it < 30_000 }
