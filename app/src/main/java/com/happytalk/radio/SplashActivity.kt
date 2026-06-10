@@ -11,6 +11,10 @@ import android.view.animation.OvershootInterpolator
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @SuppressLint("CustomSplashScreen")
 class SplashActivity : AppCompatActivity() {
@@ -91,10 +95,24 @@ class SplashActivity : AppCompatActivity() {
         
         pulseSet.start()
 
-        // Navigate to MainActivity after 2.5 seconds
-        Handler(Looper.getMainLooper()).postDelayed({
-            startActivity(Intent(this, MainActivity::class.java))
-            finish()
-        }, 2500)
+        AppwriteManager.init(this)
+
+        // Check session and navigate
+        CoroutineScope(Dispatchers.IO).launch {
+            val isLoggedIn = try {
+                AppwriteManager.account.get()
+                true
+            } catch (e: Exception) {
+                false
+            }
+            
+            withContext(Dispatchers.Main) {
+                Handler(Looper.getMainLooper()).postDelayed({
+                    val targetActivity = if (isLoggedIn) MainActivity::class.java else LoginActivity::class.java
+                    startActivity(Intent(this@SplashActivity, targetActivity))
+                    finish()
+                }, 1500) // Slight delay to let animation finish
+            }
+        }
     }
 }

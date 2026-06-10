@@ -6,6 +6,7 @@ import io.appwrite.Client
 import io.appwrite.services.Databases
 import io.appwrite.services.Realtime
 import io.appwrite.services.Storage
+import io.appwrite.services.Account
 
 /**
  * Singleton manager for Appwrite SDK — client-side access only (no API key).
@@ -20,6 +21,7 @@ object AppwriteManager {
     lateinit var databases: Databases private set
     lateinit var realtime:  Realtime  private set
     lateinit var storage:   Storage   private set
+    lateinit var account:   Account   private set
 
     fun init(context: Context) {
         if (::client.isInitialized) return
@@ -29,6 +31,7 @@ object AppwriteManager {
         databases = Databases(client)
         realtime  = Realtime(client)
         storage   = Storage(client)
+        account   = Account(client)
         Log.i(TAG, "Appwrite initialized — endpoint=$ENDPOINT project=$PROJECT_ID")
     }
 }

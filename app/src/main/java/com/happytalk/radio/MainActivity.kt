@@ -67,9 +67,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvUserCount:    TextView
     private lateinit var ivPttRing:      android.widget.ImageView
     private lateinit var etChannelName:  EditText
-    private lateinit var etNickName:     EditText
     private lateinit var btnJoinChannel: android.view.View
-    private lateinit var btnHistory:     MaterialButton
+    private lateinit var btnHistory:     android.view.View
+    private lateinit var btnLogout:      android.view.View
     private lateinit var switchMute:     com.google.android.material.switchmaterial.SwitchMaterial
     private lateinit var switchOffline:  com.google.android.material.switchmaterial.SwitchMaterial
 
@@ -127,8 +127,6 @@ class MainActivity : AppCompatActivity() {
                 prefs.edit().putString("deviceId", it).apply()
             }
 
-        currentChannelName = prefs.getString("currentChannelName", "family_roadtrip") ?: "family_roadtrip"
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val powerManager = getSystemService(POWER_SERVICE) as PowerManager
             if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
@@ -149,14 +147,14 @@ class MainActivity : AppCompatActivity() {
         tvUserCount    = findViewById(R.id.tvUserCount)
         ivPttRing      = findViewById(R.id.ivPttRing)
         etChannelName  = findViewById(R.id.etChannelName)
-        etNickName     = findViewById(R.id.etNickName)
         btnJoinChannel = findViewById(R.id.btnJoinChannel)
         btnHistory     = findViewById(R.id.btnHistory)
+        btnLogout      = findViewById<android.view.View>(R.id.btnLogout)
         switchMute     = findViewById(R.id.switchMute)
         switchOffline  = findViewById(R.id.switchOffline)
 
+        currentChannelName = prefs.getString("currentChannelName", "family_roadtrip") ?: "family_roadtrip"
         currentNickName = prefs.getString("currentNickName", "Guest") ?: "Guest"
-        etNickName.setText(currentNickName)
         etChannelName.setText(currentChannelName)
         
         btnHistory.setOnClickListener {
@@ -179,6 +177,20 @@ class MainActivity : AppCompatActivity() {
                     Toast.makeText(this, "History cleared", Toast.LENGTH_SHORT).show()
                 }
                 .show()
+        }
+        
+        btnLogout.setOnClickListener {
+            scope.launch {
+                try {
+                    AppwriteManager.account.deleteSession("current")
+                } catch (e: Exception) {
+                    Log.e("Appwrite", "Logout failed", e)
+                }
+                withContext(Dispatchers.Main) {
+                    startActivity(Intent(this@MainActivity, LoginActivity::class.java))
+                    finish()
+                }
+            }
         }
 
         // Register Download Receiver for Updater
@@ -246,40 +258,15 @@ class MainActivity : AppCompatActivity() {
 
         btnJoinChannel.setOnClickListener {
             val ch = etChannelName.text.toString().trim()
-            val nick = etNickName.text.toString().trim()
-            if (nick.isNotEmpty()) {
-                currentNickName = nick
-                prefs.edit().putString("currentNickName", currentNickName).apply()
-            }
             if (ch.isNotEmpty()) joinChannel(ch)
         }
         
         etChannelName.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE || actionId == android.view.inputmethod.EditorInfo.IME_ACTION_GO || actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEND || actionId == android.view.inputmethod.EditorInfo.IME_NULL) {
-                val ch = etChannelName.text.toString().trim()
-                val nick = etNickName.text.toString().trim()
-                if (nick.isNotEmpty()) {
-                    currentNickName = nick
-                    prefs.edit().putString("currentNickName", currentNickName).apply()
-                }
-                if (ch.isNotEmpty()) joinChannel(ch)
-                true
-            } else {
-                false
-            }
-        }
-        
-        etNickName.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE || actionId == android.view.inputmethod.EditorInfo.IME_ACTION_GO) {
-                val nick = etNickName.text.toString().trim()
-                if (nick.isNotEmpty()) {
-                    currentNickName = nick
-                    prefs.edit().putString("currentNickName", currentNickName).apply()
-                    Toast.makeText(this, "Nick Name set to $currentNickName", Toast.LENGTH_SHORT).show()
-                }
-                etNickName.clearFocus()
+                joinChannel(etChannelName.text.toString().trim())
+                etChannelName.clearFocus()
                 val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
-                imm.hideSoftInputFromWindow(etNickName.windowToken, 0)
+                imm.hideSoftInputFromWindow(etChannelName.windowToken, 0)
                 true
             } else {
                 false
