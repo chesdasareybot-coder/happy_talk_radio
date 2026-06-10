@@ -479,12 +479,16 @@ class MainActivity : AppCompatActivity() {
                     val data = mapOf("channelName" to currentChannelName, "deviceId" to deviceId,
                         "userName" to userName, "lastSeen" to System.currentTimeMillis())
                     try {
-                        AppwriteManager.databases.updateDocument(DATABASE_ID, "presence", id, data)
-                    } catch (e: AppwriteException) {
-                        if (e.code == 404)
-                            AppwriteManager.databases.createDocument(DATABASE_ID, "presence", id, data,
-                                listOf("read(\"any\")", "write(\"any\")"))
-                        else Log.e("Appwrite", "Heartbeat", e)
+                        try {
+                            AppwriteManager.databases.updateDocument(DATABASE_ID, "presence", id, data)
+                        } catch (e: AppwriteException) {
+                            if (e.code == 404)
+                                AppwriteManager.databases.createDocument(DATABASE_ID, "presence", id, data,
+                                    listOf("read(\"any\")", "write(\"any\")"))
+                            else Log.e("Appwrite", "Heartbeat", e)
+                        }
+                    } catch (e: Exception) {
+                        Log.e("Appwrite", "Heartbeat outer", e)
                     }
                 }
                 presenceHandler.postDelayed(this, 15_000)
