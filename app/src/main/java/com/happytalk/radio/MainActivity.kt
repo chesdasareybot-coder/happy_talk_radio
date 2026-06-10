@@ -145,6 +145,10 @@ class MainActivity : AppCompatActivity() {
         currentAudioFile    = externalCacheDir!!.absolutePath + "/happytalk_audio.3gp"
 
         btnPtt         = findViewById(R.id.btnPtt)
+        
+        val tvVersion = findViewById<TextView>(R.id.tvVersion)
+        tvVersion.text = "v${BuildConfig.VERSION_NAME}"
+
         btnThemeToggle = findViewById(R.id.btnThemeToggle)
         tvInstruction  = findViewById(R.id.tvInstruction)
         tvStatus       = findViewById(R.id.tvStatus)
