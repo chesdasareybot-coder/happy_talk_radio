@@ -30,9 +30,6 @@ class RadioService : Service() {
     private var isMuted             = false
     private var isOfflineMode       = false
 
-    private val audioQueue = java.util.LinkedList<String>()
-    private var isPlayingChunk = false
-
     private val udpListener = UdpAudioListener()
 
     private var wakeLock: PowerManager.WakeLock? = null
@@ -68,20 +65,23 @@ class RadioService : Service() {
         if (intent?.action == ACTION_SET_MUTE) {
             isMuted = intent.getBooleanExtra(EXTRA_MUTED, false)
             Log.i("RadioService", "Mute state updated: $isMuted")
-            return START_NOT_STICKY
+            return START_STICKY
         }
         
         if (intent?.action == ACTION_SET_OFFLINE_MODE) {
             isOfflineMode = intent.getBooleanExtra(EXTRA_OFFLINE_MODE, false)
             Log.i("RadioService", "Offline Mode updated: $isOfflineMode")
             toggleOfflineMode()
-            return START_NOT_STICKY
+            return START_STICKY
         }
 
-        currentChannelName = intent?.getStringExtra("channelName") ?: return START_NOT_STICKY
-        deviceId           = intent.getStringExtra("deviceId")     ?: return START_NOT_STICKY
-        isMuted            = intent.getBooleanExtra(EXTRA_MUTED, false)
-        isOfflineMode      = intent.getBooleanExtra(EXTRA_OFFLINE_MODE, false)
+        val prefs = getSharedPreferences("ThemePrefs", Context.MODE_PRIVATE)
+        currentChannelName = intent?.getStringExtra("channelName") ?: prefs.getString("currentChannelName", "family_roadtrip") ?: "family_roadtrip"
+        deviceId           = intent?.getStringExtra("deviceId") ?: prefs.getString("deviceId", "") ?: ""
+        if (deviceId.isEmpty()) return START_NOT_STICKY
+
+        isMuted            = intent?.getBooleanExtra(EXTRA_MUTED, prefs.getBoolean("isMuted", false)) ?: prefs.getBoolean("isMuted", false)
+        isOfflineMode      = intent?.getBooleanExtra(EXTRA_OFFLINE_MODE, prefs.getBoolean("isOfflineMode", false)) ?: prefs.getBoolean("isOfflineMode", false)
 
         AppwriteManager.init(this)
         createNotificationChannel()
@@ -103,7 +103,7 @@ class RadioService : Service() {
             startForeground(1, notification)
 
         toggleOfflineMode()
-        return START_NOT_STICKY
+        return START_STICKY
     }
     
     private fun toggleOfflineMode() {
@@ -138,7 +138,7 @@ class RadioService : Service() {
             if (chan == currentChannelName && sender != deviceId && ts > lastPlayedTimestamp && url.isNotEmpty()) {
                 lastPlayedTimestamp = ts
                 if (!isMuted) {
-                    Handler(Looper.getMainLooper()).post { queueAudio(url) }
+                    Handler(Looper.getMainLooper()).post { playAudio(url) }
                 } else {
                     Log.i("RadioService", "Incoming audio suppressed — muted")
                 }
@@ -147,21 +147,7 @@ class RadioService : Service() {
         Log.i("RadioService", "Subscribed to audio for channel: $currentChannelName")
     }
 
-    private fun queueAudio(url: String) {
-        audioQueue.add(url)
-        if (!isPlayingChunk) {
-            playNextChunk()
-        }
-    }
-
-    private fun playNextChunk() {
-        if (audioQueue.isEmpty()) {
-            isPlayingChunk = false
-            return
-        }
-        isPlayingChunk = true
-        val url = audioQueue.poll()
-        
+    private fun playAudio(url: String) {
         player?.runCatching { if (isPlaying) stop(); release() }
         player = null
         try {
@@ -172,19 +158,16 @@ class RadioService : Service() {
                 setOnCompletionListener { 
                     it.release()
                     player = null
-                    playNextChunk() 
                 }
                 setOnErrorListener { mp, w, e -> 
                     Log.e("RadioService", "Player error $w/$e")
                     mp.release()
                     player = null
-                    playNextChunk() 
                     true 
                 }
             }
         } catch (e: Exception) { 
-            Log.e("RadioService", "Failed to play chunk", e)
-            playNextChunk() 
+            Log.e("RadioService", "Failed to play audio", e)
         }
     }
 
