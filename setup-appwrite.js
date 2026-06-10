@@ -84,6 +84,9 @@ async function main() {
     await createOrSkip('Attribute: activeSenderId (string)', () =>
         databases.createStringAttribute(DATABASE_ID, 'channel_states', 'activeSenderId', 128, false, '')
     );
+    await createOrSkip('Attribute: senderName (string)', () =>
+        databases.createStringAttribute(DATABASE_ID, 'channel_states', 'senderName', 128, false, 'Guest')
+    );
     await createOrSkip('Attribute: timestamp (integer)', () =>
         databases.createIntegerAttribute(DATABASE_ID, 'channel_states', 'timestamp', true)
     );
@@ -135,6 +138,9 @@ async function main() {
     );
     await createOrSkip('Attribute: fileId (string)', () =>
         databases.createStringAttribute(DATABASE_ID, 'audio_messages', 'fileId', 128, false, '')
+    );
+    await createOrSkip('Attribute: senderName (string)', () =>
+        databases.createStringAttribute(DATABASE_ID, 'audio_messages', 'senderName', 128, false, 'Guest')
     );
     await createOrSkip('Attribute: timestamp (integer)', () =>
         databases.createIntegerAttribute(DATABASE_ID, 'audio_messages', 'timestamp', true)
