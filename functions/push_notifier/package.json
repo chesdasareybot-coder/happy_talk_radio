@@ -1,0 +1,11 @@
+{
+  "name": "push-notifier",
+  "version": "1.0.0",
+  "description": "Appwrite Cloud Function to send FCM push notifications",
+  "main": "index.js",
+  "type": "module",
+  "dependencies": {
+    "node-appwrite": "^14.0.0",
+    "firebase-admin": "^12.0.0"
+  }
+}

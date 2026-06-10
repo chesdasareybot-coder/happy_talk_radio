@@ -38,9 +38,11 @@ import androidx.work.WorkManager
 import java.util.concurrent.TimeUnit
 import java.io.File
 import java.net.InetAddress
-import java.net.NetworkInterface
+import com.happytalk.radio.AppwriteManager.databases
 import io.appwrite.ID
 import io.appwrite.Query
+import io.appwrite.models.Document
+import com.google.firebase.messaging.FirebaseMessaging
 import io.appwrite.exceptions.AppwriteException
 import io.appwrite.models.RealtimeSubscription
 import io.appwrite.models.InputFile
@@ -67,6 +69,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvUserCount:    TextView
     private lateinit var ivPttRing:      android.widget.ImageView
     private lateinit var etChannelName:  EditText
+    private lateinit var etNickName:     EditText
     private lateinit var btnJoinChannel: android.view.View
     private lateinit var btnHistory:     android.view.View
     private lateinit var btnLogout:      android.view.View
@@ -147,6 +150,7 @@ class MainActivity : AppCompatActivity() {
         tvUserCount    = findViewById(R.id.tvUserCount)
         ivPttRing      = findViewById(R.id.ivPttRing)
         etChannelName  = findViewById(R.id.etChannelName)
+        etNickName     = findViewById(R.id.etNickName)
         btnJoinChannel = findViewById(R.id.btnJoinChannel)
         btnHistory     = findViewById(R.id.btnHistory)
         btnLogout      = findViewById<android.view.View>(R.id.btnLogout)
@@ -156,6 +160,7 @@ class MainActivity : AppCompatActivity() {
         currentChannelName = prefs.getString("currentChannelName", "family_roadtrip") ?: "family_roadtrip"
         currentNickName = prefs.getString("currentNickName", "Guest") ?: "Guest"
         etChannelName.setText(currentChannelName)
+        etNickName.setText(currentNickName)
         
         btnHistory.setOnClickListener {
             val historySet = prefs.getStringSet("channelHistory", setOf()) ?: setOf()
@@ -258,15 +263,40 @@ class MainActivity : AppCompatActivity() {
 
         btnJoinChannel.setOnClickListener {
             val ch = etChannelName.text.toString().trim()
+            val nick = etNickName.text.toString().trim()
+            if (nick.isNotEmpty()) {
+                currentNickName = nick
+                prefs.edit().putString("currentNickName", currentNickName).apply()
+            }
             if (ch.isNotEmpty()) joinChannel(ch)
         }
         
         etChannelName.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE || actionId == android.view.inputmethod.EditorInfo.IME_ACTION_GO || actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEND || actionId == android.view.inputmethod.EditorInfo.IME_NULL) {
+                val ch = etChannelName.text.toString().trim()
+                val nick = etNickName.text.toString().trim()
+                if (nick.isNotEmpty()) {
+                    currentNickName = nick
+                    prefs.edit().putString("currentNickName", currentNickName).apply()
+                }
+                if (ch.isNotEmpty()) joinChannel(ch)
+                true
+            } else {
+                false
+            }
+        }
+        
+        etNickName.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE || actionId == android.view.inputmethod.EditorInfo.IME_ACTION_GO) {
-                joinChannel(etChannelName.text.toString().trim())
-                etChannelName.clearFocus()
+                val nick = etNickName.text.toString().trim()
+                if (nick.isNotEmpty()) {
+                    currentNickName = nick
+                    prefs.edit().putString("currentNickName", currentNickName).apply()
+                    Toast.makeText(this, "Nick Name set to $currentNickName", Toast.LENGTH_SHORT).show()
+                }
+                etNickName.clearFocus()
                 val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
-                imm.hideSoftInputFromWindow(etChannelName.windowToken, 0)
+                imm.hideSoftInputFromWindow(etNickName.windowToken, 0)
                 true
             } else {
                 false
@@ -388,6 +418,52 @@ class MainActivity : AppCompatActivity() {
         tvStatus.text      = "🩷 $currentChannelName"
         ivPttRing.setImageResource(R.drawable.ptt_ring)
         etChannelName.clearFocus()
+        etNickName.clearFocus()
+
+        // Sync FCM Token
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                val token = task.result
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val userId = AppwriteManager.account.get().id
+                        // Check if token already exists for this channel and user
+                        val existing = databases.listDocuments(
+                            databaseId = "happytalk_db",
+                            collectionId = "device_tokens",
+                            queries = listOf(
+                                Query.equal("userId", userId),
+                                Query.equal("channelName", channelName)
+                            )
+                        )
+                        if (existing.documents.isEmpty()) {
+                            databases.createDocument(
+                                databaseId = "happytalk_db",
+                                collectionId = "device_tokens",
+                                documentId = ID.unique(),
+                                data = mapOf(
+                                    "userId" to userId,
+                                    "fcmToken" to token,
+                                    "channelName" to channelName
+                                )
+                            )
+                        } else {
+                            val docId = existing.documents[0].id
+                            databases.updateDocument(
+                                databaseId = "happytalk_db",
+                                collectionId = "device_tokens",
+                                documentId = docId,
+                                data = mapOf(
+                                    "fcmToken" to token
+                                )
+                            )
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            }
+        }
 
         unsubscribeAll()
         presenceRunnable?.let { presenceHandler.removeCallbacks(it) }

@@ -153,7 +153,35 @@ async function main() {
         databases.createIndex(DATABASE_ID, 'audio_messages', 'timestamp_idx', 'key', ['timestamp'], ['DESC'])
     );
 
-    // ── 5. Storage Bucket ──────────────────────────────────────────────────────
+    // ── 5. device_tokens ───────────────────────────────────────────────────────
+    head('Creating collection: device_tokens...');
+    await createOrSkip('Collection: device_tokens', () =>
+        databases.createCollection(
+            DATABASE_ID,
+            'device_tokens',
+            'Device Tokens',
+            ['read("any")', 'create("any")', 'update("any")', 'delete("any")']
+        )
+    );
+
+    await createOrSkip('Attribute: userId (string)', () =>
+        databases.createStringAttribute(DATABASE_ID, 'device_tokens', 'userId', 128, true)
+    );
+    await createOrSkip('Attribute: fcmToken (string)', () =>
+        databases.createStringAttribute(DATABASE_ID, 'device_tokens', 'fcmToken', 1024, true)
+    );
+    await createOrSkip('Attribute: channelName (string)', () =>
+        databases.createStringAttribute(DATABASE_ID, 'device_tokens', 'channelName', 64, true)
+    );
+
+    await createOrSkip('Index: userId on device_tokens', () =>
+        databases.createIndex(DATABASE_ID, 'device_tokens', 'userId_idx', 'key', ['userId'])
+    );
+    await createOrSkip('Index: channelName on device_tokens', () =>
+        databases.createIndex(DATABASE_ID, 'device_tokens', 'channelName_idx', 'key', ['channelName'])
+    );
+
+    // ── 6. Storage Bucket ──────────────────────────────────────────────────────
     head('Creating storage bucket: audio_messages...');
     await createOrSkip('Bucket: ' + BUCKET_ID, () =>
         storage.createBucket(
