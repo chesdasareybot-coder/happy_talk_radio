@@ -34,6 +34,10 @@ class LoginActivity : AppCompatActivity() {
         btnGoogleLogin.setOnClickListener {
             startGoogleLogin()
         }
+        
+        // Auto-login if session already exists
+        pbLogin.visibility = View.VISIBLE
+        checkSession()
     }
 
     override fun onResume() {
@@ -50,19 +54,17 @@ class LoginActivity : AppCompatActivity() {
 
         scope.launch {
             try {
-                // In Appwrite Android SDK, this launches the browser.
-                // The Coroutine will resume once the browser redirects back to the app.
-                withContext(Dispatchers.IO) {
-                    AppwriteManager.account.createOAuth2Session(
-                        activity = this@LoginActivity,
-                        provider = OAuthProvider.GOOGLE
-                    )
-                }
-                checkSession()
+                // Launch the browser. The CallbackActivity will catch the result,
+                // and onResume will verify the session.
+                AppwriteManager.account.createOAuth2Session(
+                    activity = this@LoginActivity,
+                    provider = OAuthProvider.GOOGLE
+                )
             } catch (e: Exception) {
-                Log.e("LoginActivity", "OAuth flow failed or cancelled", e)
+                Log.e("LoginActivity", "OAuth flow failed to start", e)
                 btnGoogleLogin.isEnabled = true
                 pbLogin.visibility = View.GONE
+                isAuthenticating = false
             }
         }
     }
