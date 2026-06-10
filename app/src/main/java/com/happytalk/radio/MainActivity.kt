@@ -147,7 +147,12 @@ class MainActivity : AppCompatActivity() {
         btnPtt         = findViewById(R.id.btnPtt)
         
         val tvVersion = findViewById<TextView>(R.id.tvVersion)
-        tvVersion.text = "v${BuildConfig.VERSION_NAME}"
+        try {
+            val pInfo = packageManager.getPackageInfo(packageName, 0)
+            tvVersion.text = "v${pInfo.versionName}"
+        } catch (e: Exception) {
+            tvVersion.text = "v1.0"
+        }
 
         btnThemeToggle = findViewById(R.id.btnThemeToggle)
         tvInstruction  = findViewById(R.id.tvInstruction)
