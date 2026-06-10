@@ -89,6 +89,7 @@ class MainActivity : AppCompatActivity() {
     private var isChannelBusy      = false
     private var isRecordingState   = false
     private var recorder: MediaRecorder? = null
+    private var activeUsersList = listOf<String>()
     
     
     private val udpBroadcaster = UdpAudioBroadcaster()
@@ -161,6 +162,20 @@ class MainActivity : AppCompatActivity() {
         currentNickName = prefs.getString("currentNickName", "Guest") ?: "Guest"
         etChannelName.setText(currentChannelName)
         etNickName.setText(currentNickName)
+        
+        tvUserCount.setOnClickListener {
+            if (activeUsersList.isEmpty()) {
+                Toast.makeText(this, "No other users online right now", Toast.LENGTH_SHORT).show()
+            } else {
+                android.app.AlertDialog.Builder(this)
+                    .setTitle("Online Users (${activeUsersList.size})")
+                    .setItems(activeUsersList.toTypedArray(), null)
+                    .setPositiveButton("Close", null)
+                    .show()
+            }
+        }
+
+        switchMute.isChecked = isMuted
         
         btnHistory.setOnClickListener {
             val historySet = prefs.getStringSet("channelHistory", setOf()) ?: setOf()
@@ -460,8 +475,9 @@ class MainActivity : AppCompatActivity() {
             override fun run() {
                 scope.launch {
                     val id = (currentChannelName + deviceId).take(36).replace("-", "_")
+                    val userName = runCatching { AppwriteManager.account.get().name }.getOrDefault("Guest")
                     val data = mapOf("channelName" to currentChannelName, "deviceId" to deviceId,
-                        "lastSeen" to System.currentTimeMillis())
+                        "userName" to userName, "lastSeen" to System.currentTimeMillis())
                     try {
                         AppwriteManager.databases.updateDocument(DATABASE_ID, "presence", id, data)
                     } catch (e: AppwriteException) {
@@ -504,11 +520,18 @@ class MainActivity : AppCompatActivity() {
                     val docs = AppwriteManager.databases.listDocuments(DATABASE_ID, "presence",
                         listOf(Query.equal("channelName", currentChannelName)))
                     val now = System.currentTimeMillis()
-                    val count = docs.documents.count { d ->
+                    val activeDocs = docs.documents.filter { d ->
                         ((d.data["lastSeen"] as? Number)?.toLong() ?: 0L).let { now - it < 30_000 }
-                    }.coerceAtLeast(1)
+                    }
+                    val count = activeDocs.size.coerceAtLeast(1)
                     val displayCount = if (count > 99) "99+" else count.toString()
-                    mainHandler.post { tvUserCount.text = "👥 $displayCount" }
+                    
+                    val names = activeDocs.map { it.data["userName"] as? String ?: "Guest" }.filter { it.isNotBlank() }
+                    
+                    mainHandler.post { 
+                        activeUsersList = names
+                        tvUserCount.text = "👥 $displayCount" 
+                    }
                 } catch (e: Exception) { Log.e("Appwrite", "Presence count", e) }
             }
         }

@@ -111,6 +111,9 @@ async function main() {
     await createOrSkip('Attribute: lastSeen (integer)', () =>
         databases.createIntegerAttribute(DATABASE_ID, 'presence', 'lastSeen', true)
     );
+    await createOrSkip('Attribute: userName (string)', () =>
+        databases.createStringAttribute(DATABASE_ID, 'presence', 'userName', 128, false, 'Guest')
+    );
 
     await createOrSkip('Index: channelName on presence', () =>
         databases.createIndex(DATABASE_ID, 'presence', 'channelName_idx', 'key', ['channelName'])
