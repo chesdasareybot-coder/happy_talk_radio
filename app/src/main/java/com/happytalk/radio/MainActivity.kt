@@ -67,7 +67,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvUserCount:    TextView
     private lateinit var ivPttRing:      android.widget.ImageView
     private lateinit var etChannelName:  EditText
+    private lateinit var etNickName:     EditText
     private lateinit var btnJoinChannel: android.view.View
+    private lateinit var btnHistory:     MaterialButton
     private lateinit var switchMute:     com.google.android.material.switchmaterial.SwitchMaterial
     private lateinit var switchOffline:  com.google.android.material.switchmaterial.SwitchMaterial
 
@@ -78,14 +80,13 @@ class MainActivity : AppCompatActivity() {
     private var isMuted            = false
     private var isOfflineMode      = false
     private var currentChannelName = "family_roadtrip"
+    private var currentNickName    = "Guest"
     private var currentAudioFile   = ""
     private var lastPlayedTimestamp = 0L
     private var isChannelBusy      = false
     private var isRecordingState   = false
     private var recorder: MediaRecorder? = null
     
-    private var chunkingJob: Job? = null
-    private var currentChunkPath: String? = null
     
     private val udpBroadcaster = UdpAudioBroadcaster()
 
@@ -100,20 +101,7 @@ class MainActivity : AppCompatActivity() {
             if (intent?.action == DownloadManager.ACTION_DOWNLOAD_COMPLETE) {
                 val downloadId = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
                 if (downloadId != -1L) {
-                    // Assuming installApk logic exists elsewhere or handled via intent
-                    val dm = getSystemService(DOWNLOAD_SERVICE) as DownloadManager
-                    val query = DownloadManager.Query().setFilterById(downloadId)
-                    val cursor = dm.query(query)
-                    if (cursor.moveToFirst()) {
-                        val uri = cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI))
-                        if (uri != null) {
-                            val installIntent = Intent(Intent.ACTION_VIEW)
-                            installIntent.setDataAndType(Uri.parse(uri), "application/vnd.android.package-archive")
-                            installIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            startActivity(installIntent)
-                        }
-                    }
-                    cursor.close()
+                    installApk(downloadId)
                 }
             }
         }
@@ -161,14 +149,45 @@ class MainActivity : AppCompatActivity() {
         tvUserCount    = findViewById(R.id.tvUserCount)
         ivPttRing      = findViewById(R.id.ivPttRing)
         etChannelName  = findViewById(R.id.etChannelName)
+        etNickName     = findViewById(R.id.etNickName)
         btnJoinChannel = findViewById(R.id.btnJoinChannel)
+        btnHistory     = findViewById(R.id.btnHistory)
         switchMute     = findViewById(R.id.switchMute)
         switchOffline  = findViewById(R.id.switchOffline)
 
+        currentNickName = prefs.getString("currentNickName", "Guest") ?: "Guest"
+        etNickName.setText(currentNickName)
         etChannelName.setText(currentChannelName)
+        
+        btnHistory.setOnClickListener {
+            val historySet = prefs.getStringSet("channelHistory", setOf()) ?: setOf()
+            val historyList = historySet.toList().sorted()
+            if (historyList.isEmpty()) {
+                Toast.makeText(this, "No channel history yet", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            android.app.AlertDialog.Builder(this)
+                .setTitle("Channel History")
+                .setItems(historyList.toTypedArray()) { _, which ->
+                    val selectedChannel = historyList[which]
+                    etChannelName.setText(selectedChannel)
+                    joinChannel(selectedChannel)
+                }
+                .setNegativeButton("Cancel", null)
+                .setNeutralButton("Clear History") { _, _ ->
+                    prefs.edit().putStringSet("channelHistory", setOf()).apply()
+                    Toast.makeText(this, "History cleared", Toast.LENGTH_SHORT).show()
+                }
+                .show()
+        }
 
         // Register Download Receiver for Updater
-        registerReceiver(downloadReceiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE), RECEIVER_EXPORTED)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(downloadReceiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE), RECEIVER_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(downloadReceiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
+        }
         
         // Check for updates
         scope.launch {
@@ -227,13 +246,40 @@ class MainActivity : AppCompatActivity() {
 
         btnJoinChannel.setOnClickListener {
             val ch = etChannelName.text.toString().trim()
+            val nick = etNickName.text.toString().trim()
+            if (nick.isNotEmpty()) {
+                currentNickName = nick
+                prefs.edit().putString("currentNickName", currentNickName).apply()
+            }
             if (ch.isNotEmpty()) joinChannel(ch)
         }
         
         etChannelName.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE || actionId == android.view.inputmethod.EditorInfo.IME_ACTION_GO || actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEND || actionId == android.view.inputmethod.EditorInfo.IME_NULL) {
                 val ch = etChannelName.text.toString().trim()
+                val nick = etNickName.text.toString().trim()
+                if (nick.isNotEmpty()) {
+                    currentNickName = nick
+                    prefs.edit().putString("currentNickName", currentNickName).apply()
+                }
                 if (ch.isNotEmpty()) joinChannel(ch)
+                true
+            } else {
+                false
+            }
+        }
+        
+        etNickName.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE || actionId == android.view.inputmethod.EditorInfo.IME_ACTION_GO) {
+                val nick = etNickName.text.toString().trim()
+                if (nick.isNotEmpty()) {
+                    currentNickName = nick
+                    prefs.edit().putString("currentNickName", currentNickName).apply()
+                    Toast.makeText(this, "Nick Name set to $currentNickName", Toast.LENGTH_SHORT).show()
+                }
+                etNickName.clearFocus()
+                val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                imm.hideSoftInputFromWindow(etNickName.windowToken, 0)
                 true
             } else {
                 false
@@ -255,7 +301,7 @@ class MainActivity : AppCompatActivity() {
                     isRecordingState = true
                     
                     if (!isOfflineMode) {
-                        updateChannelState(mapOf("isTransmitting" to true, "activeSenderId" to deviceId))
+                        updateChannelState(mapOf("isTransmitting" to true, "activeSenderId" to deviceId, "senderName" to currentNickName))
                     }
                     
                     // ─── Press: scale down for tactile feel ───
@@ -271,7 +317,7 @@ class MainActivity : AppCompatActivity() {
                     if (isOfflineMode) {
                         udpBroadcaster.startBroadcasting(getBroadcastAddress())
                     } else {
-                        startMicroChunking()
+                        startRecording()
                     }
                     true
                 }
@@ -297,7 +343,7 @@ class MainActivity : AppCompatActivity() {
                     if (isOfflineMode) {
                         udpBroadcaster.stopBroadcasting()
                     } else {
-                        stopMicroChunking()
+                        stopRecordingAndUpload()
                     }
                     true
                 }
@@ -345,6 +391,10 @@ class MainActivity : AppCompatActivity() {
         if (channelName.isBlank()) return
         
         prefs.edit().putString("currentChannelName", channelName).apply()
+        
+        val history = prefs.getStringSet("channelHistory", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
+        history.add(channelName)
+        prefs.edit().putStringSet("channelHistory", history).apply()
 
         playChannelSetSound()
         currentChannelName = channelName
@@ -420,6 +470,7 @@ class MainActivity : AppCompatActivity() {
             val json = JSONObject().apply {
                 put("isTransmitting", doc["isTransmitting"])
                 put("activeSenderId", doc["activeSenderId"])
+                put("senderName",     doc["senderName"])
                 put("timestamp",      doc["timestamp"])
             }
             mainHandler.post { processChannelState(json) }
@@ -479,13 +530,14 @@ class MainActivity : AppCompatActivity() {
     private fun processChannelState(s: JSONObject) {
         val transmitting = s.optBoolean("isTransmitting", false)
         val sender       = s.optString("activeSenderId", "")
+        val senderName   = s.optString("senderName", "Someone")
         if (transmitting && sender.isNotEmpty() && sender != deviceId) {
             isChannelBusy = true
             btnPtt.isEnabled = false
             setPttColor(android.graphics.Color.GRAY)
             btnPtt.text = "CHANNEL\nBUSY"
             ivPttRing.setImageResource(R.drawable.ptt_ring_active)
-            tvStatus.text = "🔴 Busy"
+            tvStatus.text = "🔴 $senderName is speaking"
         } else {
             isChannelBusy = false
             btnPtt.isEnabled = true
@@ -555,48 +607,26 @@ class MainActivity : AppCompatActivity() {
 
     // ─── Audio recording ──────────────────────────────────────────────────────
 
-    private fun startMicroChunking() {
-        var chunkIndex = 0
-        chunkingJob = scope.launch(Dispatchers.Main) {
-            while (isActive) {
-                currentChunkPath = externalCacheDir!!.absolutePath + "/chunk_${chunkIndex++}.3gp"
-                
-                recorder = MediaRecorder().apply {
-                    setAudioSource(MediaRecorder.AudioSource.MIC)
-                    setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
-                    setOutputFile(currentChunkPath)
-                    setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB)
-                    try { prepare(); start() }
-                    catch (e: Exception) { Log.e("AudioRecord", "prepare chunk failed", e) }
-                }
-                
-                delay(1500)
-                
-                val pathToUpload = currentChunkPath!!
-                val r = recorder
-                try { r?.stop() } catch (_: Exception) {}
-                try { r?.release() } catch (_: Exception) {}
-                recorder = null
-                
-                uploadAudio(pathToUpload)
-            }
+    private fun startRecording() {
+        recorder = MediaRecorder().apply {
+            setAudioSource(MediaRecorder.AudioSource.MIC)
+            setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+            setOutputFile(currentAudioFile)
+            setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+            setAudioEncodingBitRate(64000)
+            setAudioSamplingRate(44100)
+            try { prepare(); start() }
+            catch (e: Exception) { Log.e("AudioRecord", "prepare recording failed", e) }
         }
     }
 
-    private fun stopMicroChunking() {
-        chunkingJob?.cancel()
-        chunkingJob = null
-        
+    private fun stopRecordingAndUpload() {
         val r = recorder
-        val pathToUpload = currentChunkPath
         try { r?.stop() } catch (_: Exception) {}
         try { r?.release() } catch (_: Exception) {}
         recorder = null
         
-        if (pathToUpload != null) {
-            uploadAudio(pathToUpload)
-        }
-        mainHandler.post { tvStatus.text = "🩷 $currentChannelName" }
+        uploadAudio(currentAudioFile)
     }
 
     // ─── Appwrite Storage upload ──────────────────────────────────────────────
@@ -626,6 +656,7 @@ class MainActivity : AppCompatActivity() {
                     data = mapOf(
                         "channelName" to currentChannelName,
                         "senderId"    to deviceId,
+                        "senderName"  to currentNickName,
                         "audioUrl"    to audioUrl,
                         "fileId"      to uploaded.id,
                         "timestamp"   to System.currentTimeMillis()
